@@ -1,3 +1,8 @@
+# PlateReaderExperiment 0.1.7
+
+- `merge_experiments()` now appends time points when the plate layout and design are identical and recorded time values are distinct. `axis` can force time or sample merging.
+- Added `offset_time_to_real()` to align observed time to acquisition timestamps and optionally to a supplied clock origin.
+
 # PlateReaderExperiment 0.1.6
 
 - Add `merge_experiments()` to combine compatible experiments with distinct plate layouts and preserved design, acquisition data, and run provenance.

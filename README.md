@@ -366,27 +366,48 @@ design(x) <- d
 
 The replacement must contain exactly one unique row for every `sample_id`.
 
-## Combining independent experiments
+## Combining experiments across plates or time
 
-Use `merge_experiments()` when separate plates share the same channels, time
-structure, and number of reads per well. The measured wells and their experimental
-conditions can differ. Annotate each plate before combining them:
+`merge_experiments()` chooses the merge axis automatically:
+
+- If the wells, sample descriptors, and design match **and the recorded times are
+  distinct**, it appends the second run as later time points. Each logical time
+  point gets a new ID; `timeData(combined)$source_time_id` and
+  `timeData(combined)$experiment_id` retain its origin.
+- Otherwise, compatible experiments are appended as separate plates/samples.
+  Here the measured wells and their experimental conditions may differ.
 
 ```r
 first <- set_design(read.tecan("plate1.xlsx"), first_layout, by = "well")
 second <- set_design(read.tecan("plate2.xlsx"), second_layout, by = "well")
 combined <- merge_experiments(first = first, second = second)
-
-sampleData(combined)[, c("experiment_id", "plate_id", "well", "sample_id")]
-design(combined)$group
+dim(combined)             # sample × channel × time × read position
+metadata(combined)$merge_axis  # "time" when joined across time
 ```
 
-The values remain separate measurements. Sample and plate IDs receive an experiment
-prefix, so a well named `A1` on each plate remains distinct. Original well names,
-design annotations, and acquisition metadata are retained. Channel settings,
-read-position descriptions, and nominal time schedules must be compatible; differing
-observed acquisition times are kept per experiment. Source metadata and ID maps
-are available through `metadata(combined)$experiments`.
+Use `axis = "sample"` to keep two runs as independent plates, or `axis = "time"`
+to require a time merge and fail if the layout or time values do not qualify.
+For a sample merge, each input's sample and plate IDs receive an experiment prefix,
+so an `A1` on each plate remains distinct. Original wells, design annotations,
+acquisition metadata, and run provenance are retained.
+
+Tecan imports commonly store times relative to each run, with actual measurement
+clock times in `acquisitionData(x)$timestamp`. The merge aligns distinct runs to
+one elapsed-time origin when every logical time point has a recorded timestamp.
+You can also align an individual experiment explicitly:
+
+```r
+aligned <- offset_time_to_real(first)
+timeData(aligned)[, c("nominal_time_s", "observed_time_s", "absolute_time")]
+
+# Use the same clock origin across experiments if needed:
+aligned <- offset_time_to_real(first, origin = as.POSIXct("2026-01-01 09:00:00", tz = "Europe/Berlin"))
+```
+
+`nominal_time_s` remains the requested schedule. `observed_time_s` is seconds
+since the origin; `absolute_time` is a POSIXct clock time. The time merge
+requires compatible channels and within-well read positions. In sample mode,
+logical time schedules must also match.
 
 ## 5. Subsetting
 
@@ -758,7 +779,8 @@ objects fail early.
 |---|---|
 | `PlateReaderExperiment()` | Construct an object manually |
 | `read.tecan()` | Import supported Tecan SparkControl Excel exports |
-| `merge_experiments()` | Combine compatible plates while preserving their annotations |
+| `merge_experiments()` | Combine compatible experiments across time or plates |
+| `offset_time_to_real()` | Align observed time to recorded acquisition timestamps |
 | `assay()` | Return the 4-D numeric assay |
 | `sampleData()` | Sample/well descriptor |
 | `channelData()` | Channel/filter descriptor |

@@ -229,3 +229,54 @@ test_that("real Tecan imports can be merged after separate plate annotation", {
   expect_true(validObject(z))
   expect_true(validObject(average_by_group(average_positions(z), by = "group")))
 })
+
+test_that("identical layouts with distinct acquisition times merge on time", {
+  x <- make_merge_experiment()
+  y <- make_merge_experiment(3600)
+  x@acquisitionData$timestamp <- x@acquisitionData$timestamp +
+    (match(x@acquisitionData$time_id, timeData(x)$time_id) - 1) * 60
+  y@acquisitionData$timestamp <- y@acquisitionData$timestamp +
+    (match(y@acquisitionData$time_id, timeData(y)$time_id) - 1) * 60
+  z <- merge_experiments(early = x, late = y)
+  expect_true(validObject(z))
+  expect_equal(dim(z), c(2, 2, 6, 2))
+  expect_equal(timeData(z)$observed_time_s, c(0, 60, 120, 3600, 3660, 3720))
+  expect_equal(timeData(z)$source_time_id, rep(c("T001", "T002", "T003"), 2))
+  expect_equal(timeData(z)$experiment_id, rep(c("early", "late"), each = 3))
+  expect_equal(timeData(z)$nominal_time_s, rep(c(0, 60, 120), 2))
+  expect_equal(unname(assay(z)[, , 1:3, , drop = FALSE]), unname(assay(x)))
+  expect_equal(unname(assay(z)[, , 4:6, , drop = FALSE]), unname(assay(y)))
+  expect_equal(nrow(acquisitionData(z)), 24)
+  expect_equal(length(unique(acquisitionData(z)$time_id)), 6)
+  expect_equal(metadata(z)$merge_axis, "time")
+})
+
+test_that("same plate labels with different designs remain separate plates", {
+  x <- make_merge_experiment()
+  y <- make_merge_experiment(3600)
+  x@acquisitionData$timestamp <- x@acquisitionData$timestamp +
+    (match(x@acquisitionData$time_id, timeData(x)$time_id) - 1) * 60
+  y@acquisitionData$timestamp <- y@acquisitionData$timestamp +
+    (match(y@acquisitionData$time_id, timeData(y)$time_id) - 1) * 60
+  y@design$group <- rev(y@design$group)
+  expect_equal(dim(merge_experiments(x, y)), c(4, 2, 3, 2))
+  expect_equal(dim(merge_experiments(x, x, axis = "sample")), c(4, 2, 3, 2))
+  expect_error(merge_experiments(x, y, axis = "time"), "identical plate layout/design")
+})
+
+test_that("real-time alignment preserves nominal schedule and recorded timestamps", {
+  x <- make_merge_experiment()
+  x@acquisitionData$timestamp <- x@acquisitionData$timestamp +
+    (match(x@acquisitionData$time_id, timeData(x)$time_id) - 1) * 60
+  x@acquisitionData$actual_time_s <- 0
+  origin <- as.POSIXct("2025-12-31 23:00:00", tz = "UTC")
+  y <- offset_time_to_real(x, origin = origin)
+  expect_equal(timeData(y)$observed_time_s, c(3600, 3660, 3720))
+  expect_equal(timeData(y)$nominal_time_s, c(0, 60, 120))
+  expect_s3_class(timeData(y)$absolute_time, "POSIXct")
+  expect_equal(acquisitionData(y)$actual_time_s,
+               as.numeric(acquisitionData(x)$timestamp) - as.numeric(origin))
+  expect_equal(timeData(x)$observed_time_s, c(0, 61, 122))
+  x@acquisitionData$timestamp <- NULL
+  expect_error(offset_time_to_real(x), "timestamp")
+})

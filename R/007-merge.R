@@ -85,9 +85,12 @@
 #' @param experiment_ids Optional unique, non-empty character labels, one per
 #'   experiment. Defaults to input names, with experiment1, experiment2, etc.
 #'   for unnamed inputs.
+#' @param axis Merge axis: `"auto"` selects time when layout and design match
+#'   and recorded times are distinct, otherwise samples. Use `"sample"` to
+#'   force independent plates or `"time"` to require consecutive reads.
 #' @return A PlateReaderExperiment with combined samples and design annotations.
 #' @export
-merge_experiments <- function(..., experiment_ids = NULL) {
+merge_experiments <- function(..., experiment_ids = NULL, axis = c("auto", "sample", "time")) {
   experiments <- list(...)
   if (length(experiments) == 1L && is.list(experiments[[1L]]) &&
       !is(experiments[[1L]], "PlateReaderExperiment")) {
@@ -111,6 +114,13 @@ merge_experiments <- function(..., experiment_ids = NULL) {
     .pre_abort("experiment_ids must contain one unique, non-empty character label per experiment.")
   }
   names(experiment_ids) <- NULL
+
+  axis <- match.arg(axis)
+  can_merge_time <- .pre_can_merge_times(experiments)
+  if (axis == "time" && !can_merge_time)
+    .pre_abort("Time-axis merge requires an identical plate layout/design and distinct recorded time values.")
+  if (axis == "time" || (axis == "auto" && can_merge_time))
+    return(.pre_merge_on_time(experiments, experiment_ids))
 
   reference <- experiments[[1L]]
   dimensions <- c("sample", "channel", "time", "position")

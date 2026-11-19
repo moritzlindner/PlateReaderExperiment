@@ -1,7 +1,7 @@
 Package: PlateReaderExperiment
 Type: Package
 Title: Structured Plate Reader Experiments
-Version: 0.1.6
+Version: 0.1.7
 Authors@R: person("Moritz", "Lindner", email = "moritz@lindnerlab.de", role = c("aut", "cre"))
 Description: Defines an S4 representation for plate-reader experiments with
     canonical sample by channel by time by position assay arrays. Includes
