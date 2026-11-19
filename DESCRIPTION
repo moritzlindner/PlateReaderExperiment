@@ -1,0 +1,25 @@
+Package: PlateReaderExperiment
+Type: Package
+Title: Structured Plate Reader Experiments
+Version: 0.1.6
+Authors@R: person("Moritz", "Lindner", email = "moritz@lindnerlab.de", role = c("aut", "cre"))
+Description: Defines an S4 representation for plate-reader experiments with
+    canonical sample by channel by time by position assay arrays. Includes
+    importers for Tecan SparkControl Excel exports, experimental-design
+    annotation, merging of compatible experiments, aggregation, control subtraction,
+    channel ratios, long-format conversion, and
+    plotting helpers.
+License: GPL (>= 3)
+Encoding: UTF-8
+LazyData: true
+Depends:
+    R (>= 4.1.0)
+Imports:
+    methods,
+    openxlsx
+Suggests:
+    ggplot2,
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
