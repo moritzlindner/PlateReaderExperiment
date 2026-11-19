@@ -392,8 +392,12 @@ so an `A1` on each plate remains distinct. Original wells, design annotations,
 acquisition metadata, and run provenance are retained.
 
 Tecan imports commonly store times relative to each run, with actual measurement
-clock times in `acquisitionData(x)$timestamp`. The merge aligns distinct runs to
-one elapsed-time origin when every logical time point has a recorded timestamp.
+clock times in `acquisitionData(x)$timestamp`. The merge first uses complete `timeData(x)$absolute_time` values when present.
+Otherwise it uses the recorded acquisition timestamps, and lastly falls back to
+`observed_time_s`. It requires every time value across runs to be distinct.
+When clock times are used, the merge recalculates `observed_time_s` from a shared
+earliest origin. Changing only `metadata(x)$time_origin` does not move the
+recorded times; edit `absolute_time` or the acquisition timestamps themselves.
 You can also align an individual experiment explicitly:
 
 ```r

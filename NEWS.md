@@ -1,3 +1,7 @@
+# PlateReaderExperiment 0.1.8
+
+- Time merges use explicit complete `timeData()$absolute_time` values before consulting acquisition timestamps, so manually shifted clock times can be merged.
+
 # PlateReaderExperiment 0.1.7
 
 - `merge_experiments()` now appends time points when the plate layout and design are identical and recorded time values are distinct. `axis` can force time or sample merging.

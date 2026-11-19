@@ -8,6 +8,23 @@
   if (anyNA(v)) NULL else v
 }
 
+.pre_absolute_time <- function(x) {
+  v <- x@timeData$absolute_time
+  if (!inherits(v, "POSIXt") || length(v) != nrow(x@timeData) || anyNA(v)) return(NULL)
+  as.numeric(v)
+}
+
+.pre_merge_time_source <- function(experiments) {
+  absolute <- lapply(experiments, .pre_absolute_time)
+  if (all(vapply(absolute, Negate(is.null), logical(1L))))
+    return(list(kind = "absolute_time", values = absolute))
+  recorded <- lapply(experiments, .pre_time_stamps)
+  if (all(vapply(recorded, Negate(is.null), logical(1L))))
+    return(list(kind = "timestamp", values = recorded))
+  list(kind = "observed_time_s",
+       values = lapply(experiments, function(x) x@timeData$observed_time_s))
+}
+
 #' Align logical observed times to acquisition timestamps
 #' @param x A PlateReaderExperiment with acquisitionData$timestamp.
 #' @param origin Optional POSIXct origin; defaults to the earliest timestamp.
@@ -45,21 +62,24 @@ offset_time_to_real <- function(x, origin = NULL) {
       for (nm in columns) if (!.pre_merge_equal(a[[nm]], b[[nm]])) return(FALSE)
     }
   }
-  stamps <- lapply(experiments, .pre_time_stamps)
-  if (all(vapply(stamps, Negate(is.null), logical(1L)))) {
-    values <- unlist(stamps, use.names = FALSE)
-  } else {
-    values <- unlist(lapply(experiments, function(x) x@timeData$observed_time_s), use.names = FALSE)
-  }
+  values <- unlist(.pre_merge_time_source(experiments)$values, use.names = FALSE)
   length(values) == sum(vapply(experiments, function(x) nrow(x@timeData), integer(1L))) &&
     all(is.finite(values)) && !anyDuplicated(values)
 }
 
 .pre_merge_on_time <- function(experiments, ids) {
   ref <- experiments[[1L]]
-  stamps <- lapply(experiments, .pre_time_stamps)
-  if (all(vapply(stamps, Negate(is.null), logical(1L)))) {
-    origin <- as.POSIXct(min(unlist(stamps)), origin = "1970-01-01", tz = "UTC")
+  source <- .pre_merge_time_source(experiments)
+  if (source$kind == "absolute_time") {
+    origin <- min(unlist(source$values, use.names = FALSE))
+    experiments <- lapply(seq_along(experiments), function(i) {
+      x <- experiments[[i]]
+      x@timeData$observed_time_s <- source$values[[i]] - origin
+      x@metadata$time_origin <- as.POSIXct(origin, origin = "1970-01-01", tz = "UTC")
+      x
+    })
+  } else if (source$kind == "timestamp") {
+    origin <- as.POSIXct(min(unlist(source$values)), origin = "1970-01-01", tz = "UTC")
     experiments <- lapply(experiments, offset_time_to_real, origin = origin)
   }
   ntime <- sum(vapply(experiments, function(x) dim(x)[[3L]], integer(1L)))

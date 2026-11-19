@@ -280,3 +280,19 @@ test_that("real-time alignment preserves nominal schedule and recorded timestamp
   x@acquisitionData$timestamp <- NULL
   expect_error(offset_time_to_real(x), "timestamp")
 })
+
+test_that("explicit absolute_time wins over unchanged acquisition timestamps", {
+  x <- make_merge_experiment()
+  x@acquisitionData$timestamp <- x@acquisitionData$timestamp +
+    (match(x@acquisitionData$time_id, timeData(x)$time_id) - 1) * 60
+  x <- offset_time_to_real(x)
+  y <- x
+  x@metadata$time_origin <- x@metadata$time_origin - 1
+  x@timeData$absolute_time <- x@timeData$absolute_time - 1
+  z <- merge_experiments(x, y, axis = "time")
+  expect_true(validObject(z))
+  expect_equal(dim(z), c(2, 2, 6, 2))
+  expect_equal(timeData(z)$observed_time_s, c(0, 60, 120, 1, 61, 121))
+  expect_equal(as.numeric(timeData(z)$absolute_time),
+               c(as.numeric(timeData(x)$absolute_time), as.numeric(timeData(y)$absolute_time)))
+})
